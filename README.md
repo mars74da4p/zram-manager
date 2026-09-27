@@ -1,24 +1,25 @@
 # ⚡ zram-manager
 
-> Простой и быстрый CLI-инструмент для управления zRAM и `vm.swappiness` в Linux.
+A simple, lightweight CLI & interactive Bash tool to manage **zRAM** and **vm.swappiness** on Linux distributions (Fedora, Arch Linux, Ubuntu, Debian, etc.).
 
-Поддерживает как дистрибутивы с `systemd-zram-generator` (Fedora, Arch Linux), так и классический ручной перезапуск zRAM.
-
----
-
-## 🚀 Возможности
-
-- 📊 **Мониторинг:** Быстрый просмотр ОЗУ, текущего размера zRAM, алгоритма сжатия и `swappiness`.
-- ⚙️ **Настройка Swappiness:** Изменение `vm.swappiness` на лету с сохранением в `/etc/sysctl.d/99-zram-swappiness.conf`.
-- 🗜️ **Управление zRAM:** Изменение размера (например, `4G`, `50%`, `ram/2`) и алгоритма сжатия (`zstd`, `lzo-rle`, `lz4`).
-- 🤖 **Интерактивный и CLI-режимы:** Работает через удобное меню или прямые флаги командной строки.
+It helps optimize system memory management, prevent Out-Of-Memory (OOM) freezes, and customize compressed RAM swap settings.
 
 ---
 
-## 🛠 Установка
+## ✨ Features
+
+- **🤖 Automatic Hardware Detection (`--auto`):** Automatically calculates optimal zRAM size, compression algorithm, and swappiness based on your total RAM.
+- **🛡️ OOM Freeze Protection:** Checks active zRAM usage before applying live changes to prevent severe system freezes.
+- **⚡ Systemd & Native Compatibility:** Native support for `systemd-zram-generator` (Fedora, Arch) and standalone zRAM kernel modules.
+- **📊 Interactive & Non-Interactive (CLI) Modes:** Easy-to-use menu or terminal flags for scripting and fast access.
+
+---
+
+## 🚀 Installation
+
+Clone the repository and run the installer script:
 
 ```bash
-git clone [https://github.com/mars74da4p/zram-manager.git](https://github.com/mars74da4p/zram-manager.git)
+git clone [https://github.com/YOUR_USERNAME/zram-manager.git](https://github.com/YOUR_USERNAME/zram-manager.git)
 cd zram-manager
-sudo chmod +x install.sh zram-manager.sh
 sudo ./install.sh

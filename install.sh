@@ -1,27 +1,22 @@
 #!/usr/bin/env bash
-# install.sh - Скрипт установки zram-manager в систему
+# Installer script for zram-manager
 
 set -euo pipefail
 
-GREEN='\033[0;32m'
 RED='\033[0;31m'
+GREEN='\033[0;32m'
+CYAN='\033[0;36m'
 NC='\033[0m'
 
 if [ "$EUID" -ne 0 ]; then
-  echo -e "${RED}[!] Ошибка: запустите install.sh с правами sudo!${NC}"
+  echo -e "${RED}[!] Error: Please run this installer with sudo!${NC}"
   exit 1
 fi
 
-INSTALL_DIR="/usr/local/bin"
-SCRIPT_NAME="zram-manager"
+echo -e "${CYAN}[*] Installing zram-manager to /usr/local/bin/zram-manager...${NC}"
 
-echo "[*] Установка $SCRIPT_NAME в $INSTALL_DIR..."
+cp zram-manager.sh /usr/local/bin/zram-manager
+chmod +x /usr/local/bin/zram-manager
 
-if [ -f "$SCRIPT_NAME.sh" ]; then
-  cp "$SCRIPT_NAME.sh" "$INSTALL_DIR/$SCRIPT_NAME"
-  chmod +x "$INSTALL_DIR/$SCRIPT_NAME"
-  echo -e "${GREEN}[✓] Установка завершена! Теперь можно запускать: sudo $SCRIPT_NAME${NC}"
-else
-  echo -e "${RED}[!] Файл $SCRIPT_NAME.sh не найден в текущей директории.${NC}"
-  exit 1
-fi
+echo -e "${GREEN}[✓] Installation complete!${NC}"
+echo -e "You can now run the tool from anywhere using: ${CYAN}sudo zram-manager${NC}"
