@@ -20,6 +20,6 @@ It helps optimize system memory management, prevent Out-Of-Memory (OOM) freezes,
 Clone the repository and run the installer script:
 
 ```bash
-git clone [https://github.com/mars74da4p/zram-manager.git](https://github.com/mars74da4p/zram-manager.git)
+git clone https://github.com/mars74da4p/zram-manager.git
 cd zram-manager
 sudo ./install.sh
