@@ -18,7 +18,7 @@
 ## 🛠 Установка
 
 ```bash
-git clone [https://github.com/YOUR_USERNAME/zram-manager.git](https://github.com/mars74da4p/zram-manager.git)
+git clone [https://github.com/mars74da4p/zram-manager.git](https://github.com/mars74da4p/zram-manager.git)
 cd zram-manager
 sudo chmod +x install.sh zram-manager.sh
 sudo ./install.sh
