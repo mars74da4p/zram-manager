@@ -19,30 +19,98 @@ check_root() {
 }
 
 show_status() {
-  echo -e "\n${CYAN}=== Current Memory and zRAM Status ===${NC}"
-  echo "RAM Status:"
-  free -h | grep "Mem:" | awk '{print "  Total: " $2 " | Used: " $3 " | Free: " $4}'
-  
-  echo -e "\nvm.swappiness parameter:"
-  echo "  Current value: $(sysctl -n vm.swappiness)"
-  
-  echo -e "\nzRAM Status:"
-  if command -v zramctl >/dev/null 2>&1; then
-    zramctl
-  else
-    echo "  zramctl utility is not found or zRAM is not initialized."
+  local ram_total ram_used ram_available ram_percent swap_total swap_used
+  read -r ram_total ram_used ram_available < <(free -m | awk '/^Mem:/ {print $2, $3, $7}')
+  read -r swap_total swap_used < <(free -m | awk '/^Swap:/ {print $2, $3}')
+  ram_percent=0
+  if [ "${ram_total:-0}" -gt 0 ]; then
+    ram_percent=$((ram_used * 100 / ram_total))
   fi
-  echo -e "${CYAN}=======================================${NC}\n"
+
+  printf '\n%b╭──────────────────── ZRAM MANAGER ────────────────────╮%b\n' "$CYAN" "$NC"
+  printf '%b│%b  MEMORY                                               %b│%b\n' "$CYAN" "$NC" "$CYAN" "$NC"
+  printf '  RAM       %s used / %s total (%s%%)\n' "$(numfmt --from-unit=1024 --to=iec --suffix=B "$((ram_used * 1024))")" "$(numfmt --from-unit=1024 --to=iec --suffix=B "$((ram_total * 1024))")" "$ram_percent"
+  printf '  Available %s\n' "$(numfmt --from-unit=1024 --to=iec --suffix=B "$((ram_available * 1024))")"
+  printf '  '
+  draw_memory_bar "$ram_percent"
+  printf '\n  Swap      %s used / %s total\n' "$(numfmt --from-unit=1024 --to=iec --suffix=B "$((swap_used * 1024))")" "$(numfmt --from-unit=1024 --to=iec --suffix=B "$((swap_total * 1024))")"
+  printf '\n%b│%b  KERNEL TUNING                                        %b│%b\n' "$CYAN" "$NC" "$CYAN" "$NC"
+  printf '  vm.swappiness         %s\n' "$(sysctl -n vm.swappiness)"
+  printf '  vm.vfs_cache_pressure %s\n' "$(sysctl -n vm.vfs_cache_pressure)"
+
+  printf '\n%b│%b  ZRAM                                                  %b│%b\n' "$CYAN" "$NC" "$CYAN" "$NC"
+  if command -v zramctl >/dev/null 2>&1; then
+    zramctl || true
+  else
+    printf '  zramctl utility is not installed.\n'
+  fi
+  if [ -r /sys/block/zram0/comp_algorithm ]; then
+    printf '  Available algorithms: '
+    cat /sys/block/zram0/comp_algorithm
+    printf '\n'
+  fi
+  if command -v swapon >/dev/null 2>&1; then
+    printf '\n%b│%b  ACTIVE SWAP                                          %b│%b\n' "$CYAN" "$NC" "$CYAN" "$NC"
+    swapon --show --noheadings --output=NAME,SIZE,USED,PRIO 2>/dev/null || true
+  fi
+  printf '%b╰───────────────────────────────────────────────────────╯%b\n\n' "$CYAN" "$NC"
+}
+
+draw_memory_bar() {
+  local percent="$1" filled index color="$GREEN"
+  if [ "$percent" -gt 80 ]; then
+    color="$RED"
+  elif [ "$percent" -gt 60 ]; then
+    color="$YELLOW"
+  fi
+  filled=$((percent / 5))
+  printf '%b[' "$color"
+  for ((index = 0; index < 20; index++)); do
+    if [ "$index" -lt "$filled" ]; then
+      printf '█'
+    else
+      printf '·'
+    fi
+  done
+  printf ']%b %s%%' "$NC" "$percent"
 }
 
 set_swappiness() {
   local val="$1"
-  if [[ "$val" =~ ^[0-9]+$ ]] && [ "$val" -ge 0 ] && [ "$val" -le 100 ]; then
-    sysctl vm.swappiness="$val" > /dev/null
-    echo "vm.swappiness=$val" > /etc/sysctl.d/99-zram-swappiness.conf
-    echo -e "${GREEN}[✓] Swappiness changed to $val and saved to /etc/sysctl.d/99-zram-swappiness.conf${NC}"
+  set_sysctl_setting vm.swappiness "$val" 0 200 "Swappiness" /etc/sysctl.d/99-zram-swappiness.conf
+}
+
+set_cache_pressure() {
+  local val="$1"
+  set_sysctl_setting vm.vfs_cache_pressure "$val" 0 1000 "Cache pressure" /etc/sysctl.d/99-zram-cache-pressure.conf
+}
+
+set_sysctl_setting() {
+  local key="$1" val="$2" min="$3" max="$4" label="$5" config="$6"
+  if [[ "$val" =~ ^[0-9]+$ ]] && [ "$val" -ge "$min" ] && [ "$val" -le "$max" ]; then
+    if ! sysctl "$key=$val" > /dev/null; then
+      echo -e "${RED}[!] Failed to apply ${key}.${NC}"
+      return 1
+    fi
+    if ! printf '%s=%s\n' "$key" "$val" > "$config"; then
+      echo -e "${RED}[!] Applied ${key}, but failed to save ${config}.${NC}"
+      return 1
+    fi
+    echo -e "${GREEN}[✓] ${label} changed to ${val} and saved to ${config}${NC}"
   else
-    echo -e "${RED}[!] Error: Value must be an integer between 0 and 100.${NC}"
+    echo -e "${RED}[!] Error: ${label} must be an integer between ${min} and ${max}.${NC}"
+    return 1
+  fi
+}
+
+list_algorithms() {
+  printf '\n%bAvailable zRAM compression algorithms%b\n' "$CYAN" "$NC"
+  if [ -r /sys/block/zram0/comp_algorithm ]; then
+    printf '  '
+    cat /sys/block/zram0/comp_algorithm
+    printf '\n  The active algorithm is shown in [brackets].\n\n'
+  else
+    printf '  zRAM is not initialized; load the zram module to inspect kernel support.\n\n'
   fi
 }
 
@@ -187,12 +255,31 @@ if [ $# -gt 0 ]; then
       ;;
     --swappiness|-w)
       if [ -n "${2:-}" ]; then
-        set_swappiness "$2"
-        exit 0
+        if set_swappiness "$2"; then
+          exit 0
+        else
+          exit 1
+        fi
       else
         echo -e "${RED}[!] Please specify value: --swappiness 80${NC}"
         exit 1
       fi
+      ;;
+    --cache-pressure|-c)
+      if [ -n "${2:-}" ]; then
+        if set_cache_pressure "$2"; then
+          exit 0
+        else
+          exit 1
+        fi
+      else
+        echo -e "${RED}[!] Please specify value: --cache-pressure 100${NC}"
+        exit 1
+      fi
+      ;;
+    --algorithms|-l)
+      list_algorithms
+      exit 0
       ;;
     --resize|-r)
       if [ -n "${2:-}" ]; then
@@ -207,7 +294,9 @@ if [ $# -gt 0 ]; then
       echo "Usage: sudo ./zram-manager.sh [FLAG]"
       echo "  --status, -s               Show current status"
       echo "  --auto, -a                 Auto-detect and apply optimal settings"
-      echo "  --swappiness, -w VALUE     Set swappiness (0-100)"
+      echo "  --swappiness, -w VALUE     Set swappiness (0-200)"
+      echo "  --cache-pressure, -c VALUE Set vm.vfs_cache_pressure (0-1000)"
+      echo "  --algorithms, -l           List available zRAM algorithms"
       echo "  --resize, -r SIZE [ALGO]   Set zRAM size (e.g. 4G, ram/2) and algorithm (zstd, lzo-rle)"
       echo "  --help, -h                 Show this help menu"
       exit 0
@@ -219,39 +308,46 @@ if [ $# -gt 0 ]; then
   esac
 fi
 
-# Interactive menu
+# Interactive dashboard
 while true; do
   show_status
-  echo "1) Auto-configure (Optimal size and swappiness)"
-  echo "2) Change vm.swappiness"
-  echo "3) Change zRAM size and algorithm"
-  echo "4) Refresh status"
-  echo "5) Exit"
-  read -p "Select option [1-5]: " choice
+  printf '%b  1%b  Auto configure       %b2%b  Swappiness\n' "$GREEN" "$NC" "$GREEN" "$NC"
+  printf '%b  3%b  zRAM size/algorithm  %b4%b  Cache pressure\n' "$GREEN" "$NC" "$GREEN" "$NC"
+  printf '%b  5%b  Algorithms          %b6%b  Refresh\n' "$GREEN" "$NC" "$GREEN" "$NC"
+  printf '%b  7%b  Exit\n\n' "$GREEN" "$NC"
+  read -r -p "  Select [1-7]: " choice
 
   case $choice in
     1)
       auto_configure
       ;;
     2)
-      read -p "Enter swappiness value (0-100): " s_val
-      set_swappiness "$s_val"
+      read -r -p "Enter swappiness value (0-200): " s_val
+      set_swappiness "$s_val" || true
       ;;
     3)
-      read -p "Enter size (e.g. 4G, 2048M or ram/2): " r_size
-      read -p "Enter algorithm [default: zstd]: " r_algo
+      read -r -p "Enter size (e.g. 4G, 2048M or ram/2): " r_size
+      read -r -p "Enter algorithm [default: zstd]: " r_algo
       r_algo=${r_algo:-zstd}
       resize_zram "$r_size" "$r_algo"
       ;;
     4)
-      clear
+      read -r -p "Enter vm.vfs_cache_pressure (0-1000): " c_val
+      set_cache_pressure "$c_val" || true
       ;;
     5)
+      list_algorithms
+      read -r -p "Press Enter to return to the dashboard..." _
+      ;;
+    6)
+      clear
+      ;;
+    7)
       echo "Exiting."
       exit 0
       ;;
     *)
-      echo -e "${RED}Invalid choice.${NC}"
+      echo -e "${RED}  Invalid choice.${NC}"
       ;;
   esac
 done
