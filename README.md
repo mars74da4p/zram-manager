@@ -1,6 +1,6 @@
-#  zram-manager
+# zram-manager
 
-A simple, lightweight CLI & interactive Bash tool to manage **zRAM** and **vm.swappiness** on Linux distributions (Fedora, Arch Linux, Ubuntu, Debian, etc.).
+A simple, lightweight CLI & interactive Bash tool to manage **zRAM** and **vm.swappiness** on Linux distributions (Fedora, Arch Linux, Ubuntu, Debian, etc.), with a separate PowerShell version for Windows.
 
 It helps optimize system memory management, prevent Out-Of-Memory (OOM) freezes, and customize compressed RAM swap settings.
 
@@ -15,6 +15,32 @@ It helps optimize system memory management, prevent Out-Of-Memory (OOM) freezes,
 - ** Kernel Memory Tuning:** Configure persistent `vm.swappiness` (0-200) and `vm.vfs_cache_pressure` (0-1000) values.
 - ** Compression Discovery:** Lists algorithms supported by the running zRAM device and marks the active algorithm.
 - ** Interactive & Non-Interactive (CLI) Modes:** Easy-to-use menu or terminal flags for scripting and fast access.
+
+## Windows version
+
+Windows does not provide Linux zRAM, `vm.swappiness`, or Linux zRAM compression algorithms. The Windows version manages the closest native equivalents:
+
+- Windows **Memory Compression**;
+- automatic Windows **page-file** management;
+- RAM and page-file status reporting.
+
+Open PowerShell **as Administrator** in the repository directory and run:
+
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass
+.\zram-manager.ps1 -Status
+.\zram-manager.ps1 -Auto
+```
+
+Other commands:
+
+```powershell
+.\zram-manager.ps1 -EnableCompression
+.\zram-manager.ps1 -DisableCompression
+.\zram-manager.ps1 -PageFileAutomatic
+```
+
+The Windows script does not modify Linux settings. To use actual zRAM on Windows, run the Bash version inside a Linux environment such as WSL; it will manage zRAM only when the WSL kernel exposes the required zRAM support.
 
 ---
 
