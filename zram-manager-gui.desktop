@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=zram-manager
+Comment=Linux graphical manager for zRAM and kernel memory settings
+Exec=zram-manager-gui
+Icon=drive-harddisk-system
+Terminal=false
+Categories=System;Utility;
+Keywords=zRAM;swap;memory;RAM;
